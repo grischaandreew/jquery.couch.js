@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>jquery.couch.extended install design doc test</title>
+	</head>
+	<body>
+		<script type="text/javascript" src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+		<script type="text/javascript" src="jquery.couch.js"></script>
+		<script type="text/javascript" src="jquery.couch.extended.js"></script>
+		<script type="text/javascript">
+(function($){
+	//
+	// Example Implementation of usecase to install / update a design doc
+	//
+	
+	// Use a proxy ?, see at proxy file for instructions
+	// $.couch.urlPrefix = "http://127.0.0.1/couchdb-server";
+	
+	//
+	// You need a proxy configuration from your server, when the code is not running on same domain and port where is couchdb running.
+	//
+	// Fast doku of proxy configurations:
+	//
+	// -Apache:
+	// <VirtualHost 127.0.0.1:80>
+	//	..
+  //  AllowEncodedSlashes On
+	//  ProxyRequests Off
+	//  KeepAlive Off
+	//  <Proxy *>
+	//      Order deny,allow
+	//      Deny from all
+	//      Allow from 127.0.0.1
+	//   </Proxy>
+	//	ProxyPass /couchdb-server http://127.0.0.1:5984 nocanon
+	//	ProxyPassReverse /couchdb-server http://127.0.0.1:5984
+  // </VirtualHost>
+	//
+	// -Nginx
+	// 
+	// location /couchdb-server {
+  //    rewrite /couchdb-server/(.*) /$1 break;
+	//    proxy_pass http://127.0.0.1:5984;
+	//    proxy_redirect off;
+	//    proxy_set_header Host $host;
+	//    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	// }
+	//
+	// For more details take a look at:
+	//    http://wiki.apache.org/couchdb/Apache_As_a_Reverse_Proxy
+	//    http://wiki.apache.org/couchdb/Nginx_As_a_Reverse_Proxy
+	
+	// change "default" to your database name !
+	var $db = $.couch.db("default");
+	
+	// see for doku: http://wiki.apache.org/couchdb/Reference
+	// see at: to understand all fields to use.
+	//    http://guide.couchdb.org/draft/design.html#figure/1
+	//    http://wiki.apache.org/couchdb/Document_Update_Validation
+	//    http://guide.couchdb.org/draft/validation.html
+	//    http://wiki.apache.org/couchdb/Formatting_with_Show_and_List
+	//    http://guide.couchdb.org/draft/show.html
+	//    http://wiki.apache.org/couchdb/CommonJS_Modules
+	$db.installDesignDoc({
+		// change the "_id" value to your design doc id
+		"_id": '_design/test',
+		
+		// change, add or remove new views wrapper, test arround with map, reduce functions, see:
+		//       http://wiki.apache.org/couchdb/HTTP_view_API?action=show&redirect=HttpViewApi#Getting_Information_about_Design_Documents_.28and_their_Views.29
+		"views": {
+			"by_collection": {
+				"map": function(doc, req){
+					if (doc.collection) {
+						emit(doc.collection, doc);
+					}
+				}
+			}
+		},
+		
+		// change, add or remove new filters, see: 
+		//       http://guide.couchdb.org/draft/notifications.html#filters
+		"filters": {
+			"by_collection": function(doc, req){
+				if(doc.collection && req.query &&req.query.collection && doc.collection == req.query.collection) // does the collection match?
+					return true;
+				else // do nothing
+					return false;
+			}
+		},
+		
+		// change, add or remove update handler, documentation: 
+		//       http://wiki.apache.org/couchdb/Document_Update_Handlers
+		"updates": {
+			"edit": function(doc, req){
+				doc.edited_by = req.userCtx;
+				doc.edited_date = new Date();
+				return [doc, JSON.stringify(doc)];
+			}
+		}
+	},{
+		success: function(){
+			console.log('design doc installed!');
+		},
+		error: function(){
+			console.log('installing design doc failed!');
+		}
+	});
+	
+})(jQuery);
+		</script>
+	</body>
+</html>
